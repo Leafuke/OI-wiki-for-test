@@ -5,20 +5,41 @@ on:
     branches: [ main ]
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Setup Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
-      - name: Install MkDocs
-        run: pip install mkdocs-material
-      - name: Build site
-        run: mkdocs build
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./site
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive  # 重要：获取子模块
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install uv and dependencies
+      run: |
+        pip install uv
+        uv sync --index-url https://pypi.tuna.tsinghua.edu.cn/simple/
+
+    - name: Install theme
+      run: |
+        chmod +x ./scripts/pre-build/install-theme.sh
+        ./scripts/pre-build/install-theme.sh
+
+    - name: Build with MkDocs
+      run: |
+        uv run mkdocs build
+
+    - name: Create .nojekyll file
+      run: |
+        touch ./site/.nojekyll
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./site
+        # 如果是第一次部署，需要创建 gh-pages 分支
+        force_orphan: true
